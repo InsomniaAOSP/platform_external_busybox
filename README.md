@@ -1,2 +1,2 @@
-platform_external_busybox
-=========================
+external_busybox
+================

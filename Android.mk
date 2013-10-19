@@ -9,7 +9,7 @@ BIONIC_ICS := true
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := android/regex/regex.c
 LOCAL_C_INCLUDES := $(BB_PATH)/android/regex
-LOCAL_CFLAGS := -Wno-sign-compare
+LOCAL_CFLAGS := -Wno-error -Wno-sign-compare -fno-strict-aliasing
 LOCAL_MODULE := libclearsilverregex
 include $(BUILD_STATIC_LIBRARY)
 
@@ -17,6 +17,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(shell cat $(BB_PATH)/android/librpc.sources)
 LOCAL_C_INCLUDES := $(BB_PATH)/android/librpc
+LOCAL_CFLAGS := -Wno-error -fno-strict-aliasing
 LOCAL_MODULE := libuclibcrpc
 LOCAL_CFLAGS += -fno-strict-aliasing
 include $(BUILD_STATIC_LIBRARY)
@@ -24,6 +25,15 @@ include $(BUILD_STATIC_LIBRARY)
 
 LOCAL_PATH := $(BB_PATH)
 include $(CLEAR_VARS)
+LOCAL_CFLAGS := -Wno-error -fno-strict-aliasing
+
+# Explicitly set an architecture specific CONFIG_CROSS_COMPILER_PREFIX
+ifeq ($(TARGET_ARCH),arm)
+	BUSYBOX_CROSS_COMPILER_PREFIX := "arm-eabi-"
+endif
+ifeq ($(TARGET_ARCH),x86)
+	BUSYBOX_CROSS_COMPILER_PREFIX := "i686-linux-android-"
+endif
 
 # Each profile require a compressed usage/config, outside the source tree for git history
 # We keep the uncompressed headers in local include-<profile> to track config changes.
@@ -35,6 +45,7 @@ include $(CLEAR_VARS)
 
 # Execute make clean, make prepare and copy profiles required for normal & static lib (recovery)
 
+
 KERNEL_MODULES_DIR ?= /system/lib/modules
 BUSYBOX_CONFIG := minimal full
 $(BUSYBOX_CONFIG):
@@ -42,6 +53,7 @@ $(BUSYBOX_CONFIG):
 	@cd $(BB_PATH) && make clean
 	@cd $(BB_PATH) && git clean -f -- ./include-$@/
 	cp $(BB_PATH)/.config-$@ $(BB_PATH)/.config
+	echo "CONFIG_CROSS_COMPILER_PREFIX=\"$(BUSYBOX_CROSS_COMPILER_PREFIX)\"" >> $(BB_PATH)/.config
 	cd $(BB_PATH) && make prepare
 	@#cp $(BB_PATH)/.config $(BB_PATH)/.config-$@
 	@mkdir -p $(BB_PATH)/include-$@
@@ -76,6 +88,16 @@ ifeq ($(TARGET_ARCH),arm)
 	android/libc/arch-arm/syscalls/sysinfo.S
 endif
 
+ifeq ($(TARGET_ARCH),x86)
+	BUSYBOX_SRC_FILES += \
+	android/libc/arch-x86/syscalls/adjtimex.S \
+	android/libc/arch-x86/syscalls/getsid.S \
+	android/libc/arch-x86/syscalls/stime.S \
+	android/libc/arch-x86/syscalls/swapon.S \
+	android/libc/arch-x86/syscalls/swapoff.S \
+	android/libc/arch-x86/syscalls/sysinfo.S
+endif
+
 ifeq ($(TARGET_ARCH),mips)
 	BUSYBOX_SRC_FILES += \
 	android/libc/arch-mips/syscalls/adjtimex.S \
@@ -98,6 +120,7 @@ BUSYBOX_C_INCLUDES = \
 
 BUSYBOX_CFLAGS = \
 	-Werror=implicit \
+	-fno-strict-aliasing \
 	-DNDEBUG \
 	-DANDROID \
 	-fno-strict-aliasing \
@@ -109,7 +132,6 @@ BUSYBOX_CFLAGS = \
 ifeq ($(BIONIC_ICS),true)
 BUSYBOX_CFLAGS += -DBIONIC_ICS
 endif
-
 
 # Build the static lib for the recovery tool
 
